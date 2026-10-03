@@ -228,7 +228,12 @@ export function prepareVerseInline(
   }
   if (!items.length) return null
 
-  return { prepared: prepareRichInline(items), kinds, wordFont, verseNumFont }
+  return {
+    prepared: prepareRichInline(items),
+    kinds,
+    wordFont,
+    verseNumFont,
+  }
 }
 
 function layoutVerseLines(
@@ -683,6 +688,23 @@ function drawVerseText(
   const actualFontSize = scaledFontSize ?? vt.fontSize
   const lineHeightPx = actualFontSize * vt.lineHeight
 
+  if (verse.translationLines && verse.translationLines.length > 1) {
+    let currentY = startY
+    for (const [index, text] of verse.translationLines.entries()) {
+      if (index > 0) currentY += lineHeightPx
+      currentY += drawVerseText(
+        ctx,
+        theme,
+        { reference: verse.reference, segments: [{ text }] },
+        textRectX,
+        textRectWidth,
+        currentY,
+        actualFontSize
+      )
+    }
+    return currentY - startY
+  }
+
   ctx.save()
   ctx.textBaseline = "top"
   ctx.textAlign = "left"
@@ -808,7 +830,10 @@ function buildScaledTheme(
     background: {
       ...theme.background,
       image: theme.background.image
-        ? { ...theme.background.image, blur: theme.background.image.blur * scale }
+        ? {
+            ...theme.background.image,
+            blur: theme.background.image.blur * scale,
+          }
         : null,
     },
     verseText: {
@@ -894,15 +919,15 @@ function calculateMaxAvailableVerseHeight(
   }
 }
 
-/** 
+/**
  * Returns the largest verse font size that fits within the available height without overflowing, using binary search.
- * 
- * @param ctx 
- * @param theme 
- * @param verse 
- * @param textRectWidth 
- * @param maxHeight 
- * @returns 
+ *
+ * @param ctx
+ * @param theme
+ * @param verse
+ * @param textRectWidth
+ * @param maxHeight
+ * @returns
  */
 function calculateScaledFontSize(
   ctx: CanvasRenderingContext2D,
@@ -956,18 +981,40 @@ export function measureVerseHeight(
   )
   const effectiveFontSize = fontSizeOverride ?? vt.fontSize
   const lineHeightPx = effectiveFontSize * vt.lineHeight
+
+  if (verse.translationLines && verse.translationLines.length > 1) {
+    let height = 0
+    let maxLineWidth = 1
+    for (const [index, text] of verse.translationLines.entries()) {
+      if (index > 0) height += lineHeightPx
+      const metrics = measureVerseHeight(
+        _ctx,
+        theme,
+        { reference: verse.reference, segments: [{ text }] },
+        textRectWidth,
+        effectiveFontSize
+      )
+      height += metrics.height
+      maxLineWidth = Math.max(maxLineWidth, metrics.maxLineWidth)
+    }
+    return { height, maxLineWidth }
+  }
+
   const handle = prepareVerseInline(theme, verse, effectiveFontSize)
   if (!handle) {
     return { height: lineHeightPx, maxLineWidth: 1 }
   }
-  const stats = measureRichInlineStats(handle.prepared, Math.max(1, textRectWidth))
+  const stats = measureRichInlineStats(
+    handle.prepared,
+    Math.max(1, textRectWidth)
+  )
   const maxLineWidth =
     verseAlign === "justify" && stats.lineCount > 1
       ? textRectWidth
       : stats.maxLineWidth
   return {
     height: Math.max(1, stats.lineCount) * lineHeightPx,
-    maxLineWidth: Math.max(1, maxLineWidth),
+    maxLineWidth,
   }
 }
 
@@ -1045,13 +1092,23 @@ export function computeVerseLayoutMetrics(
   // Text area is anchored within the background region (offsets are already
   // applied to the region itself). At 100% × 100% this matches anchoring to
   // the canvas directly.
-  const innerPos = anchorPosition(layout.anchor, textAreaW, textAreaH, bgW, bgH, 0, 0)
+  const innerPos = anchorPosition(
+    layout.anchor,
+    textAreaW,
+    textAreaH,
+    bgW,
+    bgH,
+    0,
+    0
+  )
   const pos = { x: bgPos.x + innerPos.x, y: bgPos.y + innerPos.y }
 
   const pad = layout.padding
   // The container's own padding insets the text too, so content wraps inside
   // the surface rather than running to its edges.
-  const surfacePad = scaledTheme.textBox.enabled ? scaledTheme.textBox.padding : 0
+  const surfacePad = scaledTheme.textBox.enabled
+    ? scaledTheme.textBox.padding
+    : 0
   const textRectX = pos.x + pad.left + surfacePad
   const textRectY = pos.y + pad.top + surfacePad
   const textRectW = textAreaW - pad.left - pad.right - surfacePad * 2

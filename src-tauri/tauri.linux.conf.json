@@ -3,6 +3,7 @@
   "bundle": {
     "resources": {
       "../data/rhema.db": "rhema.db",
+      "../models/whisper/ggml-small-q5_1.bin": "models/whisper/ggml-small-q5_1.bin",
       "../sdk/ndi/linux/libndi.so": "sdk/ndi/linux/libndi.so"
     }
   }

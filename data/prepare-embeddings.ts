@@ -41,7 +41,7 @@ const WHISPER_MODEL = join(
   PROJECT_ROOT,
   "models",
   "whisper",
-  "ggml-large-v3-turbo-q8_0.bin"
+  "ggml-small-q5_1.bin"
 )
 const MODEL_ONNX = join(MODELS_DIR, "model.onnx")
 const MODEL_INT8 = join(MODELS_DIR_INT8, "model_quantized.onnx")

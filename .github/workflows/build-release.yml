@@ -95,6 +95,9 @@ jobs:
       - name: Prepare application assets
         run: bun run setup:bundle
 
+      - name: Download bundled Whisper model
+        run: bun run download:whisper
+
       - name: Read application version
         id: version
         shell: bash

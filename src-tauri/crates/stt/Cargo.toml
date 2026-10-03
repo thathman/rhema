@@ -23,12 +23,13 @@ async-trait = "0.1"
 rhema-audio = { path = "../audio", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-whisper-rs = { version = "0.16", features = ["metal"], optional = true }
+whisper-rs = { version = "0.16", optional = true }
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 whisper-rs = { version = "0.16", optional = true }
 
 [features]
 default = ["rest-fallback"]
-rest-fallback = ["reqwest"]
+rest-fallback = ["dep:reqwest"]
+openai = ["dep:reqwest"]
 whisper = ["dep:whisper-rs", "rhema-audio"]
