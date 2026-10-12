@@ -258,6 +258,30 @@ describe("dual translation rendering", () => {
 
     expect(dual.height).toBe(single.height * 3)
   })
+
+  it("uses the secondary language style for the second translation line", () => {
+    const theme = BUILTIN_THEMES[0]
+    const dualVerse: VerseRenderData = {
+      reference: "John 3:16",
+      segments: [{ text: "For God so loved" }],
+      translationLines: ["For God so loved", "Nitori Ọlọrun fẹ́ràn ayé"],
+    }
+    const sharedStyleHeight = measureVerseHeight(stubCtx(), theme, dualVerse, 1200).height
+    const styledHeight = measureVerseHeight(
+      stubCtx(),
+      {
+        ...theme,
+        secondaryVerseText: {
+          ...theme.verseText,
+          lineHeight: theme.verseText.lineHeight * 2,
+        },
+      },
+      dualVerse,
+      1200,
+    ).height
+
+    expect(styledHeight).toBeGreaterThan(sharedStyleHeight)
+  })
 })
 
 /**

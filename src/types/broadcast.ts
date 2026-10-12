@@ -55,6 +55,23 @@ export type TextVerticalAlign = "top" | "middle" | "bottom"
 export type TextTransform = "none" | "uppercase" | "lowercase" | "capitalize"
 export type TextDecoration = "none" | "underline" | "line-through"
 
+export interface VerseTextStyle {
+  fontFamily: string
+  fontSize: number
+  fontWeight: number
+  color: string
+  horizontalAlign?: TextHorizontalAlign
+  verticalAlign?: TextVerticalAlign
+  textTransform?: TextTransform
+  textDecoration?: TextDecoration
+  lineHeight: number
+  letterSpacing: number
+  shadow: { color: string; blur: number; x: number; y: number } | null
+  outline: { color: string; width: number } | null
+  /** Optional plate behind this translation's text alone. */
+  surface?: SurfaceFill
+}
+
 export interface BroadcastTheme {
   id: string
   name: string
@@ -78,22 +95,9 @@ export interface BroadcastTheme {
    * colour or an image, and the text wraps inside it.
    */
   textBox: SurfaceFill
-  verseText: {
-    fontFamily: string
-    fontSize: number
-    fontWeight: number
-    color: string
-    horizontalAlign?: TextHorizontalAlign
-    verticalAlign?: TextVerticalAlign
-    textTransform?: TextTransform
-    textDecoration?: TextDecoration
-    lineHeight: number
-    letterSpacing: number
-    shadow: { color: string; blur: number; x: number; y: number } | null
-    outline: { color: string; width: number } | null
-    /** Optional plate behind the verse text alone. Absent means none. */
-    surface?: SurfaceFill
-  }
+  verseText: VerseTextStyle
+  /** Optional independent styling for the second translation line. */
+  secondaryVerseText?: VerseTextStyle
   verseNumbers: {
     visible: boolean
     fontSize: number

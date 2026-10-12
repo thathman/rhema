@@ -15,6 +15,7 @@ import type {
   ThemeImageFill,
   VerseRenderData,
   RenderOptions,
+  VerseTextStyle,
 } from "@/types/broadcast"
 
 // Pretext lazily creates one internal measurement context, preferring
@@ -67,6 +68,9 @@ function ensureThemeFontsLoaded(theme: BroadcastTheme): void {
   const specs = [
     `${theme.verseText.fontWeight} 16px "${theme.verseText.fontFamily}"`,
     `${theme.reference.fontWeight} 16px "${theme.reference.fontFamily}"`,
+    ...(theme.secondaryVerseText
+      ? [`${theme.secondaryVerseText.fontWeight} 16px "${theme.secondaryVerseText.fontFamily}"`]
+      : []),
   ]
   for (const spec of specs) {
     if (requestedFontSpecs.has(spec)) continue
@@ -195,9 +199,10 @@ export interface VerseInlineHandle {
 export function prepareVerseInline(
   theme: BroadcastTheme,
   verse: VerseRenderData,
-  effectiveFontSize: number
+  effectiveFontSize: number,
+  style: VerseTextStyle = theme.verseText
 ): VerseInlineHandle | null {
-  const vt = theme.verseText
+  const vt = style
   const vn = theme.verseNumbers
   const transform = resolveTextTransform(vt.textTransform)
   const ratio = vt.fontSize > 0 ? effectiveFontSize / vt.fontSize : 1
@@ -675,9 +680,10 @@ function drawVerseText(
   textRectX: number,
   textRectWidth: number,
   startY: number,
-  scaledFontSize?: number
+  scaledFontSize?: number,
+  style?: VerseTextStyle
 ): number {
-  const vt = theme.verseText
+  const vt = style ?? theme.verseText
   const vn = theme.verseNumbers
   const verseAlign = resolveHorizontalAlign(
     vt.horizontalAlign,
@@ -689,9 +695,17 @@ function drawVerseText(
   const lineHeightPx = actualFontSize * vt.lineHeight
 
   if (verse.translationLines && verse.translationLines.length > 1) {
+    const primaryStyle = theme.verseText
+    const secondaryStyle = theme.secondaryVerseText ?? primaryStyle
+    const baseFontSize = scaledFontSize ?? primaryStyle.fontSize
+    const primaryScale = primaryStyle.fontSize > 0
+      ? baseFontSize / primaryStyle.fontSize
+      : 1
     let currentY = startY
     for (const [index, text] of verse.translationLines.entries()) {
-      if (index > 0) currentY += lineHeightPx
+      if (index > 0) currentY += baseFontSize * primaryStyle.lineHeight
+      const lineStyle = index === 0 ? primaryStyle : secondaryStyle
+      const lineFontSize = lineStyle.fontSize * primaryScale
       currentY += drawVerseText(
         ctx,
         theme,
@@ -699,7 +713,8 @@ function drawVerseText(
         textRectX,
         textRectWidth,
         currentY,
-        actualFontSize
+        lineFontSize,
+        lineStyle
       )
     }
     return currentY - startY
@@ -717,7 +732,7 @@ function drawVerseText(
     }
   }
 
-  const handle = prepareVerseInline(theme, verse, actualFontSize)
+  const handle = prepareVerseInline(theme, verse, actualFontSize, vt)
   if (!handle) {
     ctx.restore()
     return 0
@@ -836,26 +851,10 @@ function buildScaledTheme(
           }
         : null,
     },
-    verseText: {
-      ...theme.verseText,
-      fontSize: theme.verseText.fontSize * scale,
-      letterSpacing: theme.verseText.letterSpacing * scale,
-      shadow: theme.verseText.shadow
-        ? {
-            ...theme.verseText.shadow,
-            blur: theme.verseText.shadow.blur * scale,
-            x: theme.verseText.shadow.x * scale,
-            y: theme.verseText.shadow.y * scale,
-          }
-        : null,
-      outline: theme.verseText.outline
-        ? {
-            ...theme.verseText.outline,
-            width: theme.verseText.outline.width * scale,
-          }
-        : null,
-      surface: scaleSurface(theme.verseText.surface, scale),
-    },
+    verseText: scaleVerseText(theme.verseText, scale),
+    secondaryVerseText: theme.secondaryVerseText
+      ? scaleVerseText(theme.secondaryVerseText, scale)
+      : undefined,
     verseNumbers: {
       ...theme.verseNumbers,
       fontSize: theme.verseNumbers.fontSize * scale,
@@ -867,6 +866,29 @@ function buildScaledTheme(
       surface: scaleSurface(theme.reference.surface, scale),
     },
     textBox: scaleSurface(theme.textBox, scale)!,
+  }
+}
+
+function scaleVerseText(style: VerseTextStyle, scale: number): VerseTextStyle {
+  return {
+    ...style,
+    fontSize: style.fontSize * scale,
+    letterSpacing: style.letterSpacing * scale,
+    shadow: style.shadow
+      ? {
+          ...style.shadow,
+          blur: style.shadow.blur * scale,
+          x: style.shadow.x * scale,
+          y: style.shadow.y * scale,
+        }
+      : null,
+    outline: style.outline
+      ? {
+          ...style.outline,
+          width: style.outline.width * scale,
+        }
+      : null,
+    surface: scaleSurface(style.surface, scale),
   }
 }
 
@@ -971,9 +993,10 @@ export function measureVerseHeight(
   theme: BroadcastTheme,
   verse: VerseRenderData,
   textRectWidth: number,
-  fontSizeOverride?: number
+  fontSizeOverride?: number,
+  style: VerseTextStyle = theme.verseText
 ): { height: number; maxLineWidth: number } {
-  const vt = theme.verseText
+  const vt = style
   const verseAlign = resolveHorizontalAlign(
     vt.horizontalAlign,
     theme.layout.textAlign,
@@ -983,16 +1006,25 @@ export function measureVerseHeight(
   const lineHeightPx = effectiveFontSize * vt.lineHeight
 
   if (verse.translationLines && verse.translationLines.length > 1) {
+    const primaryStyle = theme.verseText
+    const secondaryStyle = theme.secondaryVerseText ?? primaryStyle
+    const baseFontSize = fontSizeOverride ?? primaryStyle.fontSize
+    const primaryScale = primaryStyle.fontSize > 0
+      ? baseFontSize / primaryStyle.fontSize
+      : 1
     let height = 0
     let maxLineWidth = 1
     for (const [index, text] of verse.translationLines.entries()) {
-      if (index > 0) height += lineHeightPx
+      if (index > 0) height += baseFontSize * primaryStyle.lineHeight
+      const lineStyle = index === 0 ? primaryStyle : secondaryStyle
+      const lineFontSize = lineStyle.fontSize * primaryScale
       const metrics = measureVerseHeight(
         _ctx,
         theme,
         { reference: verse.reference, segments: [{ text }] },
         textRectWidth,
-        effectiveFontSize
+        lineFontSize,
+        lineStyle
       )
       height += metrics.height
       maxLineWidth = Math.max(maxLineWidth, metrics.maxLineWidth)
@@ -1000,7 +1032,7 @@ export function measureVerseHeight(
     return { height, maxLineWidth }
   }
 
-  const handle = prepareVerseInline(theme, verse, effectiveFontSize)
+  const handle = prepareVerseInline(theme, verse, effectiveFontSize, vt)
   if (!handle) {
     return { height: lineHeightPx, maxLineWidth: 1 }
   }
